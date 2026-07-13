@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AuraMatch - Premium Video Chat with Funny Filters & AI Voice Classifier</title>
+  <meta name="description" content="Connect with people worldwide using AI-driven voice gender matching, custom video filters, and shared interest tags.">
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-area">
+        <div class="logo-icon"><i data-lucide="sparkles"></i></div>
+        <h1>Aura<span>Match</span></h1>
+      </div>
+      <div class="status-badge">
+        <span class="pulse-indicator"></span>
+        <span id="online-count">0 online</span>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="app-main">
+      <!-- Left Sidebar: Controls & AI Analysis -->
+      <aside class="sidebar">
+        <!-- Profile & Matching Options -->
+        <div class="card setup-card">
+          <h2><i data-lucide="settings"></i> Match Preferences</h2>
+          
+          <!-- Tags / Interests -->
+          <div class="form-group">
+            <label for="tag-input">Interests / Tags</label>
+            <div class="tags-input-container">
+              <input type="text" id="tag-input" placeholder="Type tag and press Enter">
+              <button id="add-tag-btn" class="icon-btn"><i data-lucide="plus"></i></button>
+            </div>
+            <div id="tags-list" class="tags-list">
+              <!-- Dynamically populated chips -->
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Voice Analyzer Card -->
+        <div class="card audio-card">
+          <div class="card-header-with-badge">
+            <h2><i data-lucide="mic"></i> Voice Analyzer AI</h2>
+            <span id="ai-status-badge" class="ai-badge inactive">Inactive</span>
+          </div>
+          <p class="section-desc">Analyze your voice frequencies to automatically detect gender and match with opposite genders more frequently.</p>
+          
+          <div class="visualizer-container">
+            <canvas id="audio-visualizer"></canvas>
+            <div id="ai-result-overlay" class="result-overlay">
+              <div class="voice-gender-icon" id="gender-icon"><i data-lucide="help-circle"></i></div>
+              <div class="voice-gender-label" id="gender-label">Unknown</div>
+              <div class="pitch-reading" id="pitch-reading">0 Hz</div>
+            </div>
+          </div>
+
+          <div class="audio-controls">
+            <button id="start-analysis-btn" class="btn btn-secondary btn-full">
+              <i data-lucide="audio-lines"></i> Start AI Voice Analysis
+            </button>
+            <div class="calibration-progress-container" id="calibration-container" style="display: none;">
+              <span class="calibration-label">Analyzing Pitch Stability:</span>
+              <div class="progress-bar">
+                <div class="progress-fill" id="calibration-progress"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Video Filter and Stickers Card -->
+        <div class="card filter-card">
+          <h2><i data-lucide="wand-2"></i> Funny Filters & Effects</h2>
+          
+          <!-- Post-processing Filters -->
+          <div class="effects-section">
+            <h3>Visual Style</h3>
+            <div class="filter-grid">
+              <button class="filter-btn active" data-filter="normal">Normal</button>
+              <button class="filter-btn" data-filter="sepia">Sepia</button>
+              <button class="filter-btn" data-filter="grayscale">Grayscale</button>
+              <button class="filter-btn" data-filter="thermal">Thermal</button>
+              <button class="filter-btn" data-filter="neon">Neon edge</button>
+              <button class="filter-btn" data-filter="cyberpunk">Cyberpunk</button>
+            </div>
+          </div>
+
+          <!-- Draggable Sticker Overlays -->
+          <div class="effects-section">
+            <h3>Stickers & Overlays</h3>
+            <div class="sticker-grid">
+              <button class="sticker-btn" data-sticker="none">None</button>
+              <button class="sticker-btn" data-sticker="mustache">Mustache 🧔</button>
+              <button class="sticker-btn" data-sticker="glasses">Funny Glasses 👓</button>
+              <button class="sticker-btn" data-sticker="clown_nose">Clown Nose 🔴</button>
+              <button class="sticker-btn" data-sticker="cat_ears">Cat Ears 🐱</button>
+            </div>
+            
+            <!-- Sticker transformation controls -->
+            <div class="sticker-transform-controls" id="sticker-controls" style="display: none;">
+              <div class="slider-group">
+                <label>Sticker Scale</label>
+                <input type="range" id="sticker-scale" min="0.2" max="2.0" step="0.05" value="1.0">
+              </div>
+              <div class="slider-group">
+                <label>Sticker Rotation</label>
+                <input type="range" id="sticker-rotation" min="-180" max="180" step="5" value="0">
+              </div>
+              <p class="sticker-hint"><i data-lucide="info"></i> Drag on your local video feed to reposition the sticker.</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Center & Right Workspace: Video Streams & Chat -->
+      <section class="chat-workspace">
+        <!-- Video Grid Container -->
+        <div class="video-grid">
+          <!-- Remote Video Feed -->
+          <div class="video-wrapper remote-video-wrapper">
+            <video id="remote-video" autoplay playsinline class="video-element hidden"></video>
+            
+            <!-- Connecting/Matching animations overlay -->
+            <div id="video-placeholder" class="video-placeholder flex-center">
+              <div class="search-animation-container">
+                <div class="pulse-ring ring-1"></div>
+                <div class="pulse-ring ring-2"></div>
+                <div class="pulse-ring ring-3"></div>
+                <div class="search-avatar"><i data-lucide="search"></i></div>
+              </div>
+              <p class="matching-status" id="match-status-text">Click "Start Search" to find a partner</p>
+              <div id="matching-tags-overlay" class="matching-tags-overlay"></div>
+            </div>
+            
+            <div class="video-label remote-label">Stranger</div>
+          </div>
+
+          <!-- Local Video Feed -->
+          <div class="video-wrapper local-video-wrapper">
+            <!-- Hidden raw video element used for canvas capture -->
+            <video id="local-video" autoplay muted playsinline style="display: none;"></video>
+            <!-- Canvas where processing filters and stickers are drawn -->
+            <canvas id="local-canvas" class="video-element"></canvas>
+            
+            <div class="video-label local-label">You</div>
+          </div>
+        </div>
+
+        <!-- Chat & Communication Console -->
+        <div class="console-panel">
+          <!-- Chat Messages Area -->
+          <div class="chat-container">
+            <div class="messages-log" id="messages-log">
+              <div class="system-message">Welcome to AuraMatch. Tap Start AI Voice Analysis to identify your voice gender, fill in interests for matched searches, then click "Start Search" to connect.</div>
+            </div>
+            
+            <div id="typing-indicator" class="typing-indicator hidden">
+              <span>Stranger is typing</span>
+              <div class="dot-loader">
+                <div></div><div></div><div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Message and Control bar -->
+          <div class="chat-controls">
+            <button id="match-control-btn" class="btn btn-primary start-search-btn">
+              <i data-lucide="play"></i> Start Search
+            </button>
+            
+            <input type="text" id="chat-input" placeholder="Type a message..." disabled>
+            
+            <button id="send-msg-btn" class="btn btn-send icon-btn" disabled>
+              <i data-lucide="send"></i>
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Socket.io library -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- Client JavaScript modules -->
+  <script src="js/audio.js"></script>
+  <script src="js/filters.js"></script>
+  <script src="js/socket-client.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+  </script>
+</body>
+</html>
