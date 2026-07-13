@@ -4,6 +4,8 @@ class VideoFilterPipeline {
     this.localCanvas = document.getElementById('local-canvas');
     this.canvasCtx = this.localCanvas?.getContext('2d');
     this.stream = null;
+    this.fallbackAudioTrack = null;
+    this.isUsingFallback = false;
     this.animationFrameId = null;
 
     // Filters and Stickers State
@@ -32,6 +34,7 @@ class VideoFilterPipeline {
       });
       
       this.localVideo.srcObject = this.stream;
+      this.isUsingFallback = false;
       
       // Wait for metadata to load to get correct dimensions
       await new Promise((resolve) => {
@@ -48,12 +51,35 @@ class VideoFilterPipeline {
       this.stickerState.y = this.localCanvas.height / 2;
 
       this.startProcessingLoop();
-      console.log('Video Filter Pipeline initialized.');
+      console.log('Video Filter Pipeline initialized with actual camera stream.');
       return this.stream;
     } catch (err) {
-      console.error('Error starting video stream:', err);
-      alert('Could not access your camera. Please ensure camera permissions are allowed.');
-      throw err;
+      console.warn('Camera/Mic access failed or not available. Initializing profile avatar card fallback.', err);
+      
+      this.isUsingFallback = true;
+      this.localCanvas.width = 640;
+      this.localCanvas.height = 480;
+      
+      this.stickerState.x = this.localCanvas.width / 2;
+      this.stickerState.y = this.localCanvas.height / 2;
+      
+      // Attempt to retrieve audio-only track for voice chat functionality
+      try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        this.fallbackAudioTrack = audioStream.getAudioTracks()[0];
+        console.log('Microphone access successfully established for voice fallback mode.');
+      } catch (audioErr) {
+        console.warn('Microphone access also failed. Continuing in complete silent mode.', audioErr);
+      }
+      
+      this.startFallbackLoop();
+      
+      // Return a simulated stream capture from canvas combined with any audio tracks
+      const canvasStream = this.localCanvas.captureStream(30);
+      if (this.fallbackAudioTrack) {
+        canvasStream.addTrack(this.fallbackAudioTrack);
+      }
+      return canvasStream;
     }
   }
 
@@ -65,6 +91,11 @@ class VideoFilterPipeline {
       this.stream.getTracks().forEach(track => track.stop());
       this.stream = null;
     }
+    if (this.fallbackAudioTrack) {
+      this.fallbackAudioTrack.stop();
+      this.fallbackAudioTrack = null;
+    }
+    this.isUsingFallback = false;
   }
 
   setupEvents() {
@@ -183,7 +214,11 @@ class VideoFilterPipeline {
     const canvasStream = this.localCanvas.captureStream(30);
     
     // WebRTC connection also needs the actual microphone audio track
-    if (this.stream) {
+    if (this.isUsingFallback) {
+      if (this.fallbackAudioTrack) {
+        canvasStream.addTrack(this.fallbackAudioTrack);
+      }
+    } else if (this.stream) {
       const audioTrack = this.stream.getAudioTracks()[0];
       if (audioTrack) {
         canvasStream.addTrack(audioTrack);
@@ -191,6 +226,103 @@ class VideoFilterPipeline {
     }
     
     return canvasStream;
+  }
+
+  startFallbackLoop() {
+    const drawFallback = () => {
+      if (!this.isUsingFallback) return;
+      
+      const width = this.localCanvas.width;
+      const height = this.localCanvas.height;
+      
+      // Clear canvas and draw a sleek gradient background
+      const bgGrad = this.canvasCtx.createRadialGradient(width/2, height/2, 50, width/2, height/2, width/1.5);
+      bgGrad.addColorStop(0, '#16192b');
+      bgGrad.addColorStop(1, '#080911');
+      this.canvasCtx.fillStyle = bgGrad;
+      this.canvasCtx.fillRect(0, 0, width, height);
+      
+      // Draw subtle decorative ambient grid/particles in background
+      this.canvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+      this.canvasCtx.lineWidth = 1;
+      for (let x = 0; x < width; x += 40) {
+        this.canvasCtx.beginPath();
+        this.canvasCtx.moveTo(x, 0);
+        this.canvasCtx.lineTo(x, height);
+        this.canvasCtx.stroke();
+      }
+      for (let y = 0; y < height; y += 40) {
+        this.canvasCtx.beginPath();
+        this.canvasCtx.moveTo(0, y);
+        this.canvasCtx.lineTo(width, y);
+        this.canvasCtx.stroke();
+      }
+      
+      // Determine letter and color based on AI voice analyzer
+      let letter = 'Y';
+      let strokeColor = '#00f0ff'; // Cyan
+      let fillColor = 'rgba(0, 240, 255, 0.15)';
+      let label = 'Camera Off (Voice Mode)';
+      
+      const detectedGender = window.voiceAnalyzer?.detectedGender || 'unknown';
+      if (detectedGender === 'male') {
+        letter = 'M';
+        strokeColor = '#3b82f6'; // Male Blue
+        fillColor = 'rgba(59, 130, 246, 0.15)';
+        label = 'Male (AI Voice Mode)';
+      } else if (detectedGender === 'female') {
+        letter = 'F';
+        strokeColor = '#ec4899'; // Female Pink
+        fillColor = 'rgba(236, 72, 153, 0.15)';
+        label = 'Female (AI Voice Mode)';
+      }
+      
+      // Calculate pulsing size using cosine wave
+      const pulse = Math.cos(Date.now() / 250) * 8;
+      const baseRadius = 80;
+      const radius = baseRadius + pulse;
+      
+      // Draw outer glowing ring
+      this.canvasCtx.save();
+      this.canvasCtx.shadowColor = strokeColor;
+      this.canvasCtx.shadowBlur = 20 + pulse;
+      this.canvasCtx.strokeStyle = strokeColor;
+      this.canvasCtx.lineWidth = 4;
+      this.canvasCtx.beginPath();
+      this.canvasCtx.arc(width/2, height/2 - 20, radius, 0, Math.PI * 2);
+      this.canvasCtx.stroke();
+      this.canvasCtx.restore();
+      
+      // Draw avatar bubble filled background
+      this.canvasCtx.fillStyle = fillColor;
+      this.canvasCtx.beginPath();
+      this.canvasCtx.arc(width/2, height/2 - 20, radius - 4, 0, Math.PI * 2);
+      this.canvasCtx.fill();
+      
+      // Draw letter in center
+      this.canvasCtx.fillStyle = '#ffffff';
+      this.canvasCtx.font = `800 ${baseRadius * 0.9}px 'Inter', sans-serif`;
+      this.canvasCtx.textAlign = 'center';
+      this.canvasCtx.textBaseline = 'middle';
+      this.canvasCtx.fillText(letter, width/2, height/2 - 16);
+      
+      // Draw text watermark label under the avatar
+      this.canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      this.canvasCtx.font = "600 14px 'Inter', sans-serif";
+      this.canvasCtx.textAlign = 'center';
+      this.canvasCtx.fillText(label, width/2, height/2 + baseRadius + 30);
+      
+      this.canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+      this.canvasCtx.font = "400 11px 'Inter', sans-serif";
+      this.canvasCtx.fillText("Apply filters/stickers on sidebar controls", width/2, height/2 + baseRadius + 50);
+
+      // Draw Sticker overlay if they selected one
+      this.drawStickerOverlay();
+      
+      this.animationFrameId = requestAnimationFrame(drawFallback);
+    };
+    
+    this.animationFrameId = requestAnimationFrame(drawFallback);
   }
 
   startProcessingLoop() {
