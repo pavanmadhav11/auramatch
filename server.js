@@ -155,8 +155,8 @@ function tryMatch(socket) {
   const u = users.get(socket.id);
   if (!u || !u.isSearching) return;
 
-  let bestCandidate = null;
-  let bestScore = -1;
+  const candidates = [];
+  let maxScore = -1;
 
   for (const [id, w] of users.entries()) {
     // Skip self or users not actively searching
@@ -174,21 +174,20 @@ function tryMatch(socket) {
       (u.gender === 'male' && w.gender === 'female') ||
       (u.gender === 'female' && w.gender === 'male');
     
-    // Score calculation
-    // A shared tag is much stronger than a random gender match, so it's weighted higher.
-    // If tag counts are equal (including 0 tags), the opposite gender boost serves as the tiebreaker.
     const genderBoost = isOppositeGender ? 5 : 0;
     const score = (commonTags * 10) + genderBoost;
 
-    if (score > bestScore) {
-      bestScore = score;
-      bestCandidate = w;
+    candidates.push({ user: w, score: score });
+    if (score > maxScore) {
+      maxScore = score;
     }
   }
 
-  // If we found a candidate, establish connection
-  if (bestCandidate) {
-    const w = bestCandidate;
+  // If we found any candidates, pick one of the best ones randomly
+  if (candidates.length > 0) {
+    const bestCandidates = candidates.filter(c => c.score === maxScore);
+    const randomChoice = bestCandidates[Math.floor(Math.random() * bestCandidates.length)];
+    const w = randomChoice.user;
     
     // Pair them up
     u.peerId = w.id;
@@ -196,11 +195,9 @@ function tryMatch(socket) {
     u.isSearching = false;
     w.isSearching = false;
 
-    console.log(`Matched ${u.id} and ${w.id} (Score: ${bestScore})`);
+    console.log(`Matched ${u.id} and ${w.id} (Score: ${maxScore})`);
 
     // Let them know who initiates the connection (to avoid call collisions)
-    // Socket that was searching first (the waiting candidate) acts as receiver (wait-for-offer)
-    // Socket that just requested matching acts as caller (initiates-offer)
     io.to(u.id).emit('matched', {
       peerId: w.id,
       interests: w.interests,
