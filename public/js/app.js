@@ -38,6 +38,20 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       if (window.filterPipeline) {
         localStream = await window.filterPipeline.initializeStream();
+        
+        // Automatically start voice analyzer in the background using the active audio track
+        if (window.voiceAnalyzer) {
+          let activeAudioStream = null;
+          if (window.filterPipeline.isUsingFallback && window.filterPipeline.fallbackAudioTrack) {
+            activeAudioStream = new MediaStream([window.filterPipeline.fallbackAudioTrack]);
+          } else {
+            activeAudioStream = localStream;
+          }
+          
+          if (activeAudioStream && activeAudioStream.getAudioTracks().length > 0) {
+            window.voiceAnalyzer.start(activeAudioStream);
+          }
+        }
       }
     } catch (err) {
       console.error('Camera initialization failed:', err);

@@ -5,6 +5,7 @@ class VoiceGenderAnalyzer {
     this.microphone = null;
     this.javascriptNode = null;
     this.stream = null;
+    this.ownsStream = false;
     this.isAnalyzing = false;
     
     // UI elements
@@ -28,9 +29,17 @@ class VoiceGenderAnalyzer {
     this.rmsThreshold = 0.015; // Noise threshold
   }
 
-  async start() {
+  async start(existingStream = null) {
+    if (this.isAnalyzing) return;
+    
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      if (existingStream) {
+        this.stream = existingStream;
+        this.ownsStream = false;
+      } else {
+        this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        this.ownsStream = true;
+      }
       
       // Initialize Audio Context
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -52,7 +61,7 @@ class VoiceGenderAnalyzer {
         this.aiStatusBadge.textContent = 'Calibrating';
       }
       if (this.startBtn) {
-        this.startBtn.innerHTML = '<i data-lucide="square"></i> Stop AI Analysis';
+        this.startBtn.innerHTML = '<i data-lucide="refresh-cw"></i> Recalibrating...';
         lucide.createIcons();
       }
       if (this.calibrationContainer) {
@@ -64,11 +73,10 @@ class VoiceGenderAnalyzer {
       this.drawVisualizer();
       this.pitchLoop();
       
-      console.log('Voice Gender Analyzer started successfully.');
+      console.log('Voice Gender Analyzer started successfully. Background analysis in progress...');
       return true;
     } catch (err) {
-      console.error('Error accessing microphone for AI analysis:', err);
-      alert('Could not access microphone. Please ensure microphone access is granted.');
+      console.error('Error starting voice analysis:', err);
       this.stop();
       return false;
     }
@@ -81,10 +89,10 @@ class VoiceGenderAnalyzer {
       cancelAnimationFrame(this.animationFrameId);
     }
     
-    if (this.stream) {
+    if (this.stream && this.ownsStream) {
       this.stream.getTracks().forEach(track => track.stop());
-      this.stream = null;
     }
+    this.stream = null;
     
     if (this.audioContext) {
       this.audioContext.close();
@@ -103,7 +111,7 @@ class VoiceGenderAnalyzer {
     }
     
     if (this.startBtn) {
-      this.startBtn.innerHTML = '<i data-lucide="audio-lines"></i> Start AI Voice Analysis';
+      this.startBtn.innerHTML = '<i data-lucide="refresh-cw"></i> Recalibrate AI Voice';
       lucide.createIcons();
     }
     
@@ -318,12 +326,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const startBtn = document.getElementById('start-analysis-btn');
 
   if (startBtn) {
+    // Set text to indicate recalibration, since the primary analysis runs automatically in the background
+    startBtn.innerHTML = '<i data-lucide="refresh-cw"></i> Recalibrate AI Voice';
+    lucide.createIcons();
+    
     startBtn.addEventListener('click', () => {
-      if (analyzer.isAnalyzing) {
-        analyzer.stop();
-      } else {
-        analyzer.start();
+      // Clear states and reset interface
+      analyzer.detectedGender = 'unknown';
+      analyzer.pitchHistory = [];
+      analyzer.updateGenderUI();
+      analyzer.stop();
+
+      // Retrieve the existing active microphone stream to avoid prompt collision
+      let activeStream = null;
+      if (window.filterPipeline) {
+        if (window.filterPipeline.isUsingFallback && window.filterPipeline.fallbackAudioTrack) {
+          activeStream = new MediaStream([window.filterPipeline.fallbackAudioTrack]);
+        } else if (window.filterPipeline.stream) {
+          activeStream = window.filterPipeline.stream;
+        }
       }
+      
+      analyzer.start(activeStream);
     });
   }
 

@@ -169,12 +169,13 @@ function tryMatch(socket) {
       commonTags = u.interests.filter(tag => w.interests.includes(tag)).length;
     }
     
-    // 2. Gender matching optimization (boost of 5 points for male-female pair)
+    // 2. Gender matching optimization (boost of 100 points for male-female pair)
     const isOppositeGender = 
       (u.gender === 'male' && w.gender === 'female') ||
       (u.gender === 'female' && w.gender === 'male');
     
-    const genderBoost = isOppositeGender ? 5 : 0;
+    // High opposite gender boost (100) ensures opposite gender pairings are highly prioritized
+    const genderBoost = isOppositeGender ? 100 : 0;
     const score = (commonTags * 10) + genderBoost;
 
     candidates.push({ user: w, score: score });
